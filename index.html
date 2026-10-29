@@ -71,4 +71,193 @@
     <!-- Empty State -->
     <div id="emptyState" class="hidden text-center py-12 bg-white rounded-xl shadow-sm border border-slate-200">
       <i class="fa-solid fa-circle-check text-4xl text-emerald-500 mb-3"></i>
-      <h3 class="text-lg font-semibold text-
+      <h3 class="text-lg font-semibold text-slate-700">All Caught Up!</h3>
+      <p class="text-slate-500 text-sm mt-1">No pending call audit feedback found for this CRM ID.</p>
+    </div>
+
+  </main>
+
+  <script>
+    // Hardcoded Web App URL
+    const CONFIG = {
+      SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbznUxOtXLq8LGHWmd9Vevz2pb80wx8Jz0BKst9SBYiFDD0SveMq0Fon9mxFz7wYB3eWYg/exec'
+    };
+
+    // DOM Elements
+    const searchForm = document.getElementById('searchForm');
+    const agentIdInput = document.getElementById('agentIdInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    const auditsContainer = document.getElementById('auditsContainer');
+    const auditList = document.getElementById('auditList');
+    const auditCount = document.getElementById('auditCount');
+    const emptyState = document.getElementById('emptyState');
+
+    // Handle Search Submit
+    searchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const agentId = agentIdInput.value.trim();
+      
+      if (!agentId) return;
+
+      showStatus('Fetching pending audits from Google Sheets...', 'bg-blue-50 text-blue-700 border border-blue-200');
+      searchBtn.disabled = true;
+      searchBtn.classList.add('opacity-75');
+
+      try {
+        const fetchUrl = `${CONFIG.SCRIPT_URL}?agentId=${encodeURIComponent(agentId)}`;
+        const response = await fetch(fetchUrl);
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          hideStatus();
+          renderAudits(result.audits || []);
+        } else {
+          showStatus(result.message || 'Error fetching records.', 'bg-red-50 text-red-700 border border-red-200');
+        }
+      } catch (err) {
+        showStatus('Network Error: Unable to communicate with Google Sheets endpoint.', 'bg-red-50 text-red-700 border border-red-200');
+        console.error(err);
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.classList.remove('opacity-75');
+      }
+    });
+
+    // Render Cards
+    function renderAudits(audits) {
+      auditList.innerHTML = '';
+      auditCount.textContent = audits.length;
+
+      if (audits.length === 0) {
+        auditsContainer.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      auditsContainer.classList.remove('hidden');
+
+      audits.forEach((audit) => {
+        const card = document.createElement('div');
+        card.className = 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow';
+
+        card.innerHTML = `
+          <div class="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-100 pb-3 gap-2">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Date of Call</span>
+              <p class="text-sm font-semibold text-slate-700">${audit.callDate || 'N/A'}</p>
+            </div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Duration</span>
+              <p class="text-sm font-semibold text-slate-700">${audit.callDuration || 'N/A'}</p>
+            </div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">QA Auditor</span>
+              <p class="text-sm font-semibold text-slate-700">${audit.qaName || 'N/A'}</p>
+            </div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Team Lead</span>
+              <p class="text-sm font-semibold text-slate-700">${audit.tlName || 'N/A'}</p>
+            </div>
+          </div>
+
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Recording Link</span>
+            ${
+              audit.recordingLink 
+                ? `<a href="${audit.recordingLink}" target="_blank" class="inline-flex items-center space-x-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition-colors"><i class="fa-solid fa-play"></i><span>Listen to Recording</span></a>` 
+                : `<span class="text-xs text-slate-400 italic">No recording available</span>`
+            }
+          </div>
+
+          <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">QA Auditor Comments</span>
+            <p class="text-sm text-slate-700 whitespace-pre-line leading-relaxed">${audit.qaComments || 'No comments provided.'}</p>
+          </div>
+
+          <div class="space-y-3 pt-2">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Agent Remarks / Reason (Optional for Accept, Required for Dispute)</label>
+              <textarea 
+                id="remarks-${audit.rowIndex}" 
+                rows="2" 
+                placeholder="Add your comments here..."
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              ></textarea>
+            </div>
+
+            <div class="flex items-center space-x-3 pt-1">
+              <button 
+                onclick="submitFeedback(${audit.rowIndex}, 'Accepted')" 
+                class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center space-x-1 shadow-sm"
+              >
+                <i class="fa-solid fa-check"></i>
+                <span>Accept Audit</span>
+              </button>
+              <button 
+                onclick="submitFeedback(${audit.rowIndex}, 'Disputed')" 
+                class="flex-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center space-x-1 shadow-sm"
+              >
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Dispute Audit</span>
+              </button>
+            </div>
+          </div>
+        `;
+
+        auditList.appendChild(card);
+      });
+    }
+
+    // Submit Feedback Action
+    async function submitFeedback(rowIndex, actionStatus) {
+      const remarksInput = document.getElementById(`remarks-${rowIndex}`);
+      const remarks = remarksInput ? remarksInput.value.trim() : '';
+
+      if (actionStatus === 'Disputed' && !remarks) {
+        alert('Please provide remarks explaining why you are disputing this call audit.');
+        if (remarksInput) remarksInput.focus();
+        return;
+      }
+
+      showStatus(`Submitting status "${actionStatus}" to Google Sheets...`, 'bg-blue-50 text-blue-700 border border-blue-200');
+
+      try {
+        const response = await fetch(CONFIG.SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            rowIndex: rowIndex,
+            actionStatus: actionStatus,
+            agentRemarks: remarks
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          showStatus(`Audit feedback recorded as "${actionStatus}". Refreshing list...`, 'bg-emerald-50 text-emerald-700 border border-emerald-200');
+          setTimeout(() => searchForm.dispatchEvent(new Event('submit')), 1500);
+        } else {
+          showStatus(result.message || 'Failed to record response.', 'bg-red-50 text-red-700 border border-red-200');
+        }
+      } catch (err) {
+        showStatus('Error communicating with Google Sheet endpoint.', 'bg-red-50 text-red-700 border border-red-200');
+        console.error(err);
+      }
+    }
+
+    // Status Banner Helpers
+    function showStatus(msg, classes) {
+      statusMessage.className = `p-4 rounded-lg text-sm text-center font-medium ${classes}`;
+      statusMessage.textContent = msg;
+      statusMessage.classList.remove('hidden');
+    }
+
+    function hideStatus() {
+      statusMessage.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
