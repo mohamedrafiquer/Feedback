@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     .glass-card {
       background: rgba(255, 255, 255, 0.95);
@@ -24,56 +26,88 @@
         <i class="fa-solid fa-clipboard-check text-2xl text-emerald-400"></i>
         <h1 class="text-xl font-bold tracking-wide">Agent QC Audit Portal</h1>
       </div>
-      <span class="text-xs bg-indigo-800 text-indigo-200 px-3 py-1 rounded-full">Automated Feedback Loop</span>
+      <div id="userInfo" class="hidden flex items-center space-x-3">
+        <span id="userEmailDisplay" class="text-xs bg-indigo-800 text-indigo-200 px-3 py-1.5 rounded-full font-medium"></span>
+        <button onclick="signOut()" class="text-xs text-rose-300 hover:text-white underline">Sign Out</button>
+      </div>
     </div>
   </header>
 
   <main class="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
 
-    <!-- Search Section -->
-    <section class="glass-card p-6 rounded-xl shadow-md border border-slate-200">
-      <h2 class="text-lg font-semibold text-slate-700 mb-2">Look Up Pending Audits</h2>
-      <p class="text-sm text-slate-500 mb-4">Enter your official CRM ID or Email address to pull calls waiting for feedback.</p>
+    <!-- Google Sign-In Gate (Hidden once logged in) -->
+    <section id="loginSection" class="glass-card p-8 rounded-xl shadow-md border border-slate-200 text-center max-w-md mx-auto my-12 space-y-4">
+      <i class="fa-solid fa-lock text-4xl text-indigo-600 mb-2"></i>
+      <h2 class="text-xl font-bold text-slate-700">Google Authentication Required</h2>
+      <p class="text-sm text-slate-500">Please sign in with your Google account to verify your identity before accessing audit feedback.</p>
       
-      <div class="flex flex-col sm:flex-row gap-3">
-        <div class="relative flex-grow">
-          <i class="fa-solid fa-user-tag absolute left-3.5 top-3.5 text-slate-400"></i>
-          <input 
-            type="text" 
-            id="agentIdInput" 
-            placeholder="e.g., reshma.r@kalyanm.in" 
-            required
-            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-slate-800 text-sm"
-          />
+      <!-- Google Sign-In Button Container -->
+      <div class="flex justify-center pt-2">
+        <div id="g_id_onload"
+             data-client_id="228921711395-tf534ha4idd47tf8jthp8hbtd8s3kb5h.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
         </div>
-        <button 
-          type="button" 
-          id="searchBtn"
-          onclick="handleSearch()"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-sm text-sm"
-        >
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <span>Find Audits</span>
-        </button>
+        <div class="g_id_signin"
+             data-type="standard"
+             data-size="large"
+             data-theme="outline"
+             data-text="sign_in_with"
+             data-shape="rectangular"
+             data-logo_alignment="left">
+        </div>
       </div>
     </section>
 
-    <!-- Loading / Status Container -->
-    <div id="statusMessage" class="hidden p-4 rounded-lg text-sm text-center font-medium"></div>
+    <!-- Main Portal Content (Hidden until authenticated) -->
+    <div id="portalContent" class="hidden space-y-6">
+      
+      <!-- Search Section -->
+      <section class="glass-card p-6 rounded-xl shadow-md border border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-700 mb-2">Look Up Pending Audits</h2>
+        <p class="text-sm text-slate-500 mb-4">Verified Account: <span id="verifiedBadge" class="font-medium text-indigo-600"></span>. Enter your official CRM ID or Email address to search.</p>
+        
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="relative flex-grow">
+            <i class="fa-solid fa-user-tag absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input 
+              type="text" 
+              id="agentIdInput" 
+              placeholder="e.g., reshma.r@kalyanm.in" 
+              required
+              class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-slate-800 text-sm"
+            />
+          </div>
+          <button 
+            type="button" 
+            id="searchBtn"
+            onclick="handleSearch()"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-sm text-sm"
+          >
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Find Audits</span>
+          </button>
+        </div>
+      </section>
 
-    <!-- Audits Container -->
-    <section id="auditsContainer" class="space-y-6 hidden">
-      <div class="flex justify-between items-center border-b border-slate-200 pb-2">
-        <h3 class="text-md font-bold text-slate-700">Pending Audits (<span id="auditCount">0</span>)</h3>
+      <!-- Status Message Banner -->
+      <div id="statusMessage" class="hidden p-4 rounded-lg text-sm text-center font-medium"></div>
+
+      <!-- Audits Container -->
+      <section id="auditsContainer" class="space-y-6 hidden">
+        <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+          <h3 class="text-md font-bold text-slate-700">Pending Audits (<span id="auditCount">0</span>)</h3>
+        </div>
+        <div id="auditList" class="space-y-4"></div>
+      </section>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden text-center py-12 bg-white rounded-xl shadow-sm border border-slate-200">
+        <i class="fa-solid fa-circle-check text-4xl text-emerald-500 mb-3"></i>
+        <h3 class="text-lg font-semibold text-slate-700">All Caught Up!</h3>
+        <p class="text-slate-500 text-sm mt-1">No pending call audit feedback found for this CRM ID.</p>
       </div>
-      <div id="auditList" class="space-y-4"></div>
-    </section>
 
-    <!-- Empty State -->
-    <div id="emptyState" class="hidden text-center py-12 bg-white rounded-xl shadow-sm border border-slate-200">
-      <i class="fa-solid fa-circle-check text-4xl text-emerald-500 mb-3"></i>
-      <h3 class="text-lg font-semibold text-slate-700">All Caught Up!</h3>
-      <p class="text-slate-500 text-sm mt-1">No pending call audit feedback found for this CRM ID.</p>
     </div>
 
   </main>
@@ -83,6 +117,8 @@
       SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbznUxOtXLq8LGHWmd9Vevz2pb80wx8Jz0BKst9SBYiFDD0SveMq0Fon9mxFz7wYB3eWYg/exec'
     };
 
+    let authenticatedGoogleEmail = '';
+
     const agentIdInput = document.getElementById('agentIdInput');
     const searchBtn = document.getElementById('searchBtn');
     const statusMessage = document.getElementById('statusMessage');
@@ -91,7 +127,37 @@
     const auditCount = document.getElementById('auditCount');
     const emptyState = document.getElementById('emptyState');
 
-    // Trigger search when pressing "Enter" key in input
+    // Decode Google JWT Token from Sign-In callback
+    function handleCredentialResponse(response) {
+      try {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        authenticatedGoogleEmail = payload.email;
+
+        // Display verified Google email in header and search description
+        document.getElementById('userEmailDisplay').textContent = authenticatedGoogleEmail;
+        document.getElementById('verifiedBadge').textContent = authenticatedGoogleEmail;
+        document.getElementById('userInfo').classList.remove('hidden');
+        
+        // Switch views from login gate to portal search
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('portalContent').classList.remove('hidden');
+      } catch (err) {
+        console.error('Failed to parse Google credential token:', err);
+        alert('Authentication error. Please try again.');
+      }
+    }
+
+    function signOut() {
+      authenticatedGoogleEmail = '';
+      document.getElementById('userInfo').classList.add('hidden');
+      document.getElementById('portalContent').classList.add('hidden');
+      document.getElementById('loginSection').classList.remove('hidden');
+      agentIdInput.value = '';
+      auditsContainer.classList.add('hidden');
+      emptyState.classList.add('hidden');
+    }
+
+    // Trigger search on Enter key
     agentIdInput.addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -99,12 +165,12 @@
       }
     });
 
-    // Dedicated search function
+    // Manual CRM Search Function
     async function handleSearch() {
       const agentId = agentIdInput.value.trim();
       
       if (!agentId) {
-        showStatus('Please enter an Agent Email / CRM ID.', 'bg-amber-50 text-amber-800 border border-amber-200');
+        showStatus('Please enter your official CRM ID or Email address.', 'bg-amber-50 text-amber-800 border border-amber-200');
         return;
       }
 
@@ -242,7 +308,8 @@
           body: JSON.stringify({
             rowIndex: rowIndex,
             actionStatus: actionStatus,
-            agentRemarks: remarks
+            agentRemarks: remarks,
+            verifiedGoogleAccount: authenticatedGoogleEmail // Logs the signed-in personal Google account for audit authenticity
           })
         });
 
