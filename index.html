@@ -35,7 +35,7 @@
       <h2 class="text-lg font-semibold text-slate-700 mb-2">Look Up Pending Audits</h2>
       <p class="text-sm text-slate-500 mb-4">Enter your official CRM ID or Email address to pull calls waiting for feedback.</p>
       
-      <form id="searchForm" class="flex flex-col sm:flex-row gap-3">
+      <div class="flex flex-col sm:flex-row gap-3">
         <div class="relative flex-grow">
           <i class="fa-solid fa-user-tag absolute left-3.5 top-3.5 text-slate-400"></i>
           <input 
@@ -47,14 +47,15 @@
           />
         </div>
         <button 
-          type="submit" 
+          type="button" 
           id="searchBtn"
+          onclick="handleSearch()"
           class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-sm text-sm"
         >
           <i class="fa-solid fa-magnifying-glass"></i>
           <span>Find Audits</span>
         </button>
-      </form>
+      </div>
     </section>
 
     <!-- Loading / Status Container -->
@@ -78,13 +79,10 @@
   </main>
 
   <script>
-    // Hardcoded Web App URL
     const CONFIG = {
       SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbznUxOtXLq8LGHWmd9Vevz2pb80wx8Jz0BKst9SBYiFDD0SveMq0Fon9mxFz7wYB3eWYg/exec'
     };
 
-    // DOM Elements
-    const searchForm = document.getElementById('searchForm');
     const agentIdInput = document.getElementById('agentIdInput');
     const searchBtn = document.getElementById('searchBtn');
     const statusMessage = document.getElementById('statusMessage');
@@ -93,12 +91,22 @@
     const auditCount = document.getElementById('auditCount');
     const emptyState = document.getElementById('emptyState');
 
-    // Handle Search Submit
-    searchForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // Trigger search when pressing "Enter" key in input
+    agentIdInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSearch();
+      }
+    });
+
+    // Dedicated search function
+    async function handleSearch() {
       const agentId = agentIdInput.value.trim();
       
-      if (!agentId) return;
+      if (!agentId) {
+        showStatus('Please enter an Agent Email / CRM ID.', 'bg-amber-50 text-amber-800 border border-amber-200');
+        return;
+      }
 
       showStatus('Fetching pending audits from Google Sheets...', 'bg-blue-50 text-blue-700 border border-blue-200');
       searchBtn.disabled = true;
@@ -106,7 +114,11 @@
 
       try {
         const fetchUrl = `${CONFIG.SCRIPT_URL}?agentId=${encodeURIComponent(agentId)}`;
-        const response = await fetch(fetchUrl);
+        const response = await fetch(fetchUrl, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+
         const result = await response.json();
 
         if (result.status === 'success') {
@@ -117,12 +129,12 @@
         }
       } catch (err) {
         showStatus('Network Error: Unable to communicate with Google Sheets endpoint.', 'bg-red-50 text-red-700 border border-red-200');
-        console.error(err);
+        console.error('Fetch error:', err);
       } finally {
         searchBtn.disabled = false;
         searchBtn.classList.remove('opacity-75');
       }
-    });
+    }
 
     // Render Cards
     function renderAudits(audits) {
@@ -238,13 +250,13 @@
 
         if (result.status === 'success') {
           showStatus(`Audit feedback recorded as "${actionStatus}". Refreshing list...`, 'bg-emerald-50 text-emerald-700 border border-emerald-200');
-          setTimeout(() => searchForm.dispatchEvent(new Event('submit')), 1500);
+          setTimeout(() => handleSearch(), 1500);
         } else {
           showStatus(result.message || 'Failed to record response.', 'bg-red-50 text-red-700 border border-red-200');
         }
       } catch (err) {
         showStatus('Error communicating with Google Sheet endpoint.', 'bg-red-50 text-red-700 border border-red-200');
-        console.error(err);
+        console.error('Submit error:', err);
       }
     }
 
