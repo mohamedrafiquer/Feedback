@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Call Audit Feedback Portal</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
+
+  <!-- Header -->
+  <header class="bg-indigo-900 text-white shadow-lg py-4 px-6">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-clipboard-check text-2xl text-emerald-400"></i>
+        <h1 class="text-xl font-bold tracking-wide">Agent QC Audit Portal</h1>
+      </div>
+      <span class="text-xs bg-indigo-800 text-indigo-200 px-3 py-1 rounded-full">Automated Feedback Loop</span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Search Section -->
+    <section class="glass-card p-6 rounded-xl shadow-md border border-slate-200">
+      <h2 class="text-lg font-semibold text-slate-700 mb-2">Look Up Pending Audits</h2>
+      <p class="text-sm text-slate-500 mb-4">Enter your official CRM ID or Email address to pull calls waiting for feedback.</p>
+      
+      <form id="searchForm" class="flex flex-col sm:flex-row gap-3">
+        <div class="relative flex-grow">
+          <i class="fa-solid fa-user-tag absolute left-3.5 top-3.5 text-slate-400"></i>
+          <input 
+            type="text" 
+            id="agentIdInput" 
+            placeholder="e.g., kosala.na@kalyanmatrimony.com or gowthammanoj@kalyanm.in" 
+            required
+            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all text-slate-800 text-sm"
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="searchBtn"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-sm text-sm"
+        >
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Find Audits</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- Loading / Status Container -->
+    <div id="statusMessage" class="hidden p-4 rounded-lg text-sm text-center font-medium"></div>
+
+    <!-- Audits Container -->
+    <section id="auditsContainer" class="space-y-6 hidden">
+      <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+        <h3 class="text-md font-bold text-slate-700">Pending Audits (<span id="auditCount">0</span>)</h3>
+      </div>
+      <div id="auditList" class="space-y-4"></div>
+    </section>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden text-center py-12 bg-white rounded-xl shadow-sm border border-slate-200">
+      <i class="fa-solid fa-circle-check text-4xl text-emerald-500 mb-3"></i>
+      <h3 class="text-lg font-semibold text-slate-700">All Caught Up!</h3>
+      <p class="text-slate-500 text-sm mt-1">No pending call audit feedback found for this CRM ID.</p>
+    </div>
+
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. HARDCODE YOUR APPS SCRIPT URL HERE
+    // =========================================================================
+    const CONFIG = {
+      SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbznUxOtXLq8LGHWmd9Vevz2pb80wx8Jz0BKst9SBYiFDD0SveMq0Fon9mxFz7wYB3eWYg/exec' // Replace with your https://script.google.com/macros/s/.../exec URL
+    };
+
+    // DOM Elements
+    const searchForm = document.getElementById('searchForm');
+    const agentIdInput = document.getElementById('agentIdInput');
+    const search
